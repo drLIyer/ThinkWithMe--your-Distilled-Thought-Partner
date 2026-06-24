@@ -71,8 +71,8 @@ Use the context to produce a concrete draft the user can act on immediately, eve
 
 **Source transparency**: Always be honest about where your answer comes from.
 - If the provided context strongly supports your answer, cite it naturally.
-- If the context is thin or only partially relevant, say so explicitly — e.g. "Lenny's content doesn't cover this directly, but drawing on general product thinking…"
-- Never silently blend general knowledge into a Lenny-sourced answer without flagging it.
+- If the context is thin or only partially relevant, say so explicitly — e.g. "The corpus doesn't cover this directly, but drawing on general product thinking…"
+- Never silently blend general knowledge into a corpus-sourced answer without flagging it.
 
 Never leave the user without something concrete to act on."""
 

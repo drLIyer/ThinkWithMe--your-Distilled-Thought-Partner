@@ -1,5 +1,5 @@
 """
-Ask Lenny — Chainlit UI
+Distill — Chainlit UI
 
 Run with:
     chainlit run chainlit_app.py
@@ -484,7 +484,7 @@ def _build_system_prompt() -> str:
             f"- Current projects: {profile.get('projects', '')}\n"
             + (f"- What they want from this thought partner: {goals}\n" if goals else "")
             + "\nAlways frame answers in the context of their specific role and the products they manage. "
-            "When relevant, connect Lenny's frameworks to their actual situation."
+            "When relevant, connect frameworks from the corpus to their actual situation."
             + (f" Keep in mind their stated goal: {goals}." if goals else "")
             + "\n\n"
         )
@@ -676,7 +676,7 @@ async def on_chat_start():
                 "Fill in your profile using the **⚙️ Settings** panel that just opened — takes 30 seconds. "
                 "You can update it anytime from ⚙️ Settings.\n\n"
                 "---\n\n"
-                "*600+ Lenny pieces, personalized to your role and products.*"
+                f"*{_CORPUS_DESC}, personalized to your role and products.*"
             ),
             author="Distill",
         ).send()
@@ -685,10 +685,9 @@ async def on_chat_start():
             content=(
                 "## Distill\n"
                 "#### Your thought partner for product, growth, and leadership\n\n"
-                "*600+ Lenny pieces, one clear answer*\n\n"
+                f"*{_CORPUS_DESC}*\n\n"
                 "---\n\n"
-                "Ask me anything about product strategy, growth, leadership, or startups — "
-                "or attach a file to analyze through Lenny's lens."
+                f"Ask me anything — or attach a file to analyze through the corpus."
             ),
             author="Distill",
         ).send()
@@ -764,7 +763,7 @@ async def _handle_message(message: cl.Message):
                 f"If you continue, responses will switch to **Claude Haiku** "
                 f"(`{HAIKU_MODEL}`) which is faster but has limitations:\n"
                 f"- Less nuanced reasoning\n"
-                f"- May miss subtle connections across Lenny's content\n"
+                f"- May miss subtle connections across the corpus\n"
                 f"- Shorter, less detailed responses\n"
                 f"- Smaller effective context window"
             ),
@@ -791,7 +790,7 @@ async def _handle_message(message: cl.Message):
                         uploaded_docs = uploaded_docs[-MAX_UPLOADED_DOCS:]
                     cl.user_session.set("uploaded_docs", uploaded_docs)
                     await cl.Message(
-                        content=f"📄 **{att['name']}** added to context — I'll reference it alongside Lenny's content.",
+                        content=f"📄 **{att['name']}** added to context — I'll reference it alongside the corpus.",
                         author="Distill", parent_id=None,
                     ).send()
 
@@ -833,7 +832,7 @@ async def _handle_message(message: cl.Message):
         ).send()
 
     # ── Build Claude messages ──────────────────────────────────────────────
-    preamble = f"Context from Lenny's content:\n\n{context}\n\n---\n\n"
+    preamble = f"Context from the corpus:\n\n{context}\n\n---\n\n"
 
     # Inject persistent uploaded docs
     if uploaded_docs and not attachments:
@@ -913,7 +912,7 @@ async def _handle_message(message: cl.Message):
     # ── Append confidence + sources to the main message ───────────────────
     conf = confidence
     conf_dot = {"high": "🟢", "medium": "🟠", "low": "🔴"}[conf["level"]]
-    conf_note = "\n\n⚠️ *Lenny's content had limited coverage here — verify key claims independently.*" \
+    conf_note = "\n\n⚠️ *Limited corpus coverage here — verify key claims independently.*" \
         if conf["level"] == "low" else ""
 
     suffix = f"\n\n---\n{conf_dot} *{conf['label']}*{conf_note}"

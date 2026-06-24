@@ -10,10 +10,8 @@ Run:
   .venv312/bin/python3 -m uvicorn rag_service:app --host 127.0.0.1 --port 8083
 """
 
-import json
 import os
 import pickle
-import re
 from pathlib import Path
 from typing import Optional
 
@@ -37,41 +35,22 @@ TOP_K       = 8
 
 # ── Module-level state (loaded once at startup) ───────────────────────────────
 
-_index:        Optional[faiss.Index]       = None
-_chunks:       list                        = []
-_embed_model:  Optional[SentenceTransformer] = None
-_podcast_urls: dict[str, str]              = {}
-_SLUG_MAP:     dict[str, str]              = {}
+_index:       Optional[faiss.Index]        = None
+_chunks:      list                         = []
+_embed_model: Optional[SentenceTransformer] = None
 
 
 # ── Resource loading ──────────────────────────────────────────────────────────
 
 def load_resources():
-    global _index, _chunks, _embed_model, _podcast_urls
+    global _index, _chunks, _embed_model
     print("RAG service: loading FAISS index...")
     _index = faiss.read_index(str(INDEX_PATH))
     with open(CHUNKS_PATH, "rb") as f:
         _chunks = pickle.load(f)
     print(f"RAG service: loading embedding model ({EMBED_MODEL})...")
     _embed_model = SentenceTransformer(EMBED_MODEL)
-
-    index_path = DATA_DIR / "01-start-here/index.json"
-    if index_path.exists():
-        import json as _json
-        try:
-            idx = _json.loads(index_path.read_text())
-        except (PermissionError, OSError):
-            idx = {}
-        for item in idx.get("podcasts", []):
-            try:
-                import frontmatter as _fm
-                post = _fm.load(str(DATA_DIR / item["filename"]))
-                yt = post.metadata.get("youtube_url", "")
-                if yt:
-                    _podcast_urls[item["filename"]] = yt
-            except Exception:
-                pass
-    print(f"RAG service ready — {len(_chunks)} chunks, {len(_podcast_urls)} podcast URLs")
+    print(f"RAG service ready — {len(_chunks)} chunks")
 
 
 # ── RAG functions ─────────────────────────────────────────────────────────────
@@ -95,84 +74,51 @@ def compute_confidence(results: list[dict]) -> dict:
     avg = sum(scores) / len(scores)
     top = scores[0]
     if top >= 0.62 and avg >= 0.59:
-        return {"level": "high",   "label": "High Lenny coverage",     "color": "#27ae60"}
+        return {"level": "high",   "label": "High corpus coverage",    "color": "#27ae60"}
     elif top >= 0.55:
-        return {"level": "medium", "label": "Moderate Lenny coverage",  "color": "#e67e22"}
+        return {"level": "medium", "label": "Moderate corpus coverage", "color": "#e67e22"}
     else:
         return {"level": "low",
-                "label": "Limited Lenny coverage — draws on general knowledge",
+                "label": "Limited corpus coverage — draws on general knowledge",
                 "color": "#e74c3c"}
+
+
+def _type_icon(doc_type: str) -> str:
+    icons = {"podcast": "🎙️", "video": "🎬", "book": "📖", "newsletter": "📰"}
+    return icons.get(doc_type, "📄")
 
 
 def format_context(results: list[dict]) -> str:
     parts = []
     for r in results:
-        if r["type"] == "podcast":
-            header = f"[PODCAST] {r['title']} (guest: {r.get('guest', r['title'])}, {r['date']})"
-        else:
-            header = f"[NEWSLETTER] {r['title']} ({r['date']})"
+        doc_type = r.get("type", "article").upper()
+        guest = r.get("guest", "")
+        guest_part = f" (guest: {guest})" if guest else ""
+        header = f"[{doc_type}] {r['title']}{guest_part} ({r['date']})"
         parts.append(f"{header}\n{r['text']}")
     return "\n\n---\n\n".join(parts)
 
 
-def _load_slug_map() -> dict:
-    p = Path("newsletter_slug_map.json")
-    if p.exists():
-        try:
-            return json.loads(p.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _newsletter_url(filename: str, title: str) -> str:
-    global _SLUG_MAP
-    if not _SLUG_MAP:
-        _SLUG_MAP = _load_slug_map()
-    slug = _SLUG_MAP.get(filename)
-    if slug:
-        return f"https://www.lennysnewsletter.com/p/{slug}"
-    return _google_search_url(title)
-
-
-def _google_search_url(title: str) -> str:
-    query = re.sub(r'[^a-z0-9 ]', '', title.lower())[:80].strip().replace(' ', '+')
-    return f"https://www.google.com/search?q=site:lennysnewsletter.com+{query}" if query else ""
-
-
 def source_url(s: dict) -> str:
-    filename = s.get("filename", "")
-    if s["type"] == "podcast":
-        yt = _podcast_urls.get(filename, "")
-        if yt:
-            return yt
-        query = s.get("guest") or s.get("title", "")
-        return f"https://www.youtube.com/results?search_query=Lenny+Rachitsky+podcast+{query.replace(' ', '+')}"
-    return _newsletter_url(filename, s.get("title", ""))
+    # Prefer an explicit URL stored at ingest time
+    return s.get("url", "")
 
 
 def format_sources_md(sources: list[dict]) -> str:
     lines = []
     for s in sources:
-        icon  = "🎙️" if s["type"] == "podcast" else "📰"
-        kind  = "Podcast" if s["type"] == "podcast" else "Newsletter"
+        doc_type = s.get("type", "article")
+        icon  = _type_icon(doc_type)
+        kind  = doc_type.capitalize()
         label = s.get("guest") or s["title"]
         url   = source_url(s)
         score = f'{s["score"] * 100:.0f}% match' if s.get("score") else ""
-        if s["type"] == "podcast":
-            link = f" · [Search on YouTube ↗]({url})" if url else ""
-        else:
-            google = _google_search_url(s.get("title", ""))
-            if url:
-                link = f" · [Open ↗]({url}) · [Google ↗]({google})"
-            else:
-                link = f" · [Search Google ↗]({google})" if google else ""
+        link  = f" · [Open ↗]({url})" if url else ""
         lines.append(f"{icon} **{kind}** · {label} · *{s['date']}* · `{score}`{link}")
 
         if s.get("text"):
             snippet = s["text"][:300].rsplit(" ", 1)[0] + " …"
             lines.append(f"> {snippet}\n")
-    lines.append("\n> 🔒 *Some articles may be behind Lenny's paywall — answers are based on the full content.*")
     return "\n".join(lines)
 
 

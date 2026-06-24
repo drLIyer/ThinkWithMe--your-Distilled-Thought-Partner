@@ -1,58 +1,81 @@
-# Getting the Lenny Data
+# Getting your corpus
 
-Distill is built around Lenny Rachitsky's newsletter and podcast archive. The content is
-**not included in this repo** — it is proprietary to Lenny and available exclusively to
-paid subscribers.
+Distill works with any collection of markdown files — Lenny's newsletter and podcast archive,
+Paul Graham essays, internal documentation, book notes, research papers, anything.
 
-## Step 1 — Subscribe and download the archive
+---
 
-1. Subscribe to [Lenny's Newsletter](https://www.lennysnewsletter.com) (paid tier)
-2. In your subscriber settings, download the full archive — you'll get a `.zip` of markdown files
-3. Unzip it somewhere on your machine (e.g. `~/lenny-data`)
+## Corpus format
 
-The archive contains ~650+ markdown files with YAML frontmatter, organized like this:
+Each `.md` file should have YAML frontmatter. The only required fields are `title` and `date`.
+All others are optional:
 
-```
-lenny-data/
-  01-start-here/
-    index.json          ← manifest of all content
-    LICENSE.md
-  02-newsletters/
-    *.md                ← one file per newsletter issue
-  03-podcasts/
-    *.md                ← one file per podcast episode
-```
+```yaml
+---
+title: "How to Set Goals That Actually Work"
+date: "2024-03-15"
+type: newsletter        # any label: newsletter, podcast, article, book, video, etc.
+                        # defaults to "article" if omitted
+url: "https://example.com/your-article"   # shown as a link in source cards
+guest: "Shreyas Doshi"  # for podcast/interview content — shown as the source label
+tags: ["goals", "strategy"]
+---
 
-## Step 2 — Set DATA_DIR in your .env
-
-```
-DATA_DIR=/path/to/your/lenny-data
+Your content here...
 ```
 
-## Step 3 — Build the index
+Files without frontmatter or with empty content are skipped automatically.
+
+---
+
+## Using Lenny's Newsletter & Podcast archive
+
+Lenny's content is available to paid subscribers and is **not included in this repo**.
+
+1. Subscribe at [lennysnewsletter.com](https://www.lennysnewsletter.com) (paid tier)
+2. Download the full archive from your subscriber settings
+3. Unzip it somewhere (e.g. `~/lenny-data`)
+4. Set `DATA_DIR=/path/to/lenny-data` in your `.env`
+5. Run `python ingest.py`
+
+The archive comes with its own directory structure. `ingest.py` walks it recursively and
+reads `type`, `date`, `title`, and `url` from each file's frontmatter automatically.
+
+---
+
+## Using your own corpus
+
+Any directory of `.md` files works. Structure it however you like — `ingest.py` recurses
+into all subdirectories.
+
+```
+my-corpus/
+  essays/
+    first-principles.md
+    on-writing.md
+  books/
+    the-mom-test.md
+  notes/
+    *.md
+```
+
+Set in `.env`:
+
+```
+DATA_DIR=/path/to/my-corpus
+ASSISTANT_NAME=Sage
+CORPUS_DESCRIPTION=Paul Graham essays, YC lecture notes, and startup reading list
+```
+
+Then rebuild the index:
 
 ```bash
 python ingest.py
 ```
 
-This reads every markdown file, chunks it at 400 words with 50-word overlap, embeds each
-chunk with `all-MiniLM-L6-v2`, and writes two files to the repo root:
+---
 
-- `index.faiss` — the vector index
-- `chunks.pkl` — chunk text + metadata
+## Rebuilding after adding content
 
-This takes 2–5 minutes on first run. You only need to re-run it if the data changes.
-
-## Using a different corpus
-
-Distill is not Lenny-specific. If you have your own collection of markdown files (blog
-posts, internal docs, book notes — anything), point `DATA_DIR` at them and run `ingest.py`.
-The only requirement is that each file has a `title` and `date` field in its YAML
-frontmatter, and a `type` field set to either `newsletter` or `podcast`.
-
-Set `CORPUS_DESCRIPTION` in `.env` to tell the assistant what it knows about, e.g.:
-
-```
-CORPUS_DESCRIPTION=Paul Graham's essays on startups, writing, and thinking
-ASSISTANT_NAME=PG
-```
+Just run `ingest.py` again — it rebuilds from scratch each time. Then restart the RAG
+service so it loads the new index.
