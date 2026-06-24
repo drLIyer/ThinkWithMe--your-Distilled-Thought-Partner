@@ -6,6 +6,7 @@ Run with:
 """
 
 import json
+import os
 import sqlite3
 import subprocess
 from datetime import datetime, timezone
@@ -29,7 +30,7 @@ if not st.session_state.admin_auth:
     st.markdown("## Distill Admin")
     pwd = st.text_input("Password", type="password")
     if st.button("Login"):
-        if pwd == "distill2024":
+        if pwd == os.environ.get("ADMIN_PASSWORD", ""):
             st.session_state.admin_auth = True
             st.rerun()
         else:
@@ -241,8 +242,8 @@ with col_btn:
     if st.button("🔄 Run Update Now", type="primary", use_container_width=True):
         with st.spinner("Running update agent…"):
             result = subprocess.run(
-                ["/bin/bash", "/Users/liyer_1/lennys-rag/run_update.sh"],
-                capture_output=True, text=True, cwd="/Users/liyer_1/lennys-rag"
+                ["/bin/bash", str(Path(__file__).parent / "run_update.sh")],
+                capture_output=True, text=True, cwd=str(Path(__file__).parent)
             )
         if result.returncode == 0:
             st.success("✅ Update complete — Distill restarted and email sent.")

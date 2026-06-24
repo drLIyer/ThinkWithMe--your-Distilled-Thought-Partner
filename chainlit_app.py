@@ -10,6 +10,7 @@ import base64
 import io
 import json
 import mimetypes
+import os
 import re
 import signal
 import sys
@@ -42,11 +43,12 @@ class _NoOpStorage(BaseStorageClient):
     async def close(self):
         pass
 
-DB_URL             = "sqlite+aiosqlite:////Users/liyer_1/lennys-rag/asklenny.db"
-DB_SYNC_URL        = "/Users/liyer_1/lennys-rag/asklenny.db"
-USER_PROFILE_PATH  = Path("/Users/liyer_1/lennys-rag/user_profile.json")
-USER_MEMORIES_PATH = Path("/Users/liyer_1/lennys-rag/user_memories.json")
-BOOKMARKS_PATH     = Path("/Users/liyer_1/lennys-rag/bookmarks.json")
+_BASE              = Path(__file__).parent
+DB_URL             = f"sqlite+aiosqlite:///{_BASE / 'asklenny.db'}"
+DB_SYNC_URL        = str(_BASE / "asklenny.db")
+USER_PROFILE_PATH  = _BASE / "user_profile.json"
+USER_MEMORIES_PATH = _BASE / "user_memories.json"
+BOOKMARKS_PATH     = _BASE / "bookmarks.json"
 
 
 @cl.data_layer
@@ -57,7 +59,7 @@ def get_data_layer():
 @cl.password_auth_callback
 async def auth_callback(username: str, password: str):
     # Simple single-user auth — same identifier as migration
-    if username == "align" and password == "distill2024":
+    if username == os.environ.get("CHAINLIT_USERNAME", "") and password == os.environ.get("CHAINLIT_PASSWORD", ""):
         return User(identifier="local-user", metadata={"role": "user"})
     return None
 
@@ -113,9 +115,9 @@ async def on_settings_update(settings: dict):
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-FEEDBACK_PATH      = Path("/Users/liyer_1/lennys-rag/feedback.json")
-CLAUDE_MODEL       = "align-aws-sonnet-4-6"
-HAIKU_MODEL        = "align-aws-haiku-4-5"
+FEEDBACK_PATH      = _BASE / "feedback.json"
+CLAUDE_MODEL       = os.environ.get("ANTHROPIC_MODEL",       "claude-sonnet-4-6")
+HAIKU_MODEL        = os.environ.get("ANTHROPIC_HAIKU_MODEL", "claude-haiku-4-5")
 MAX_HISTORY_TURNS    = 20
 TURN_WARNING         = 15
 MAX_MEMORIES         = 10

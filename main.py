@@ -38,7 +38,7 @@ INDEX_PATH = Path("index.faiss")
 CHUNKS_PATH = Path("chunks.pkl")
 CONVERSATIONS_DIR = Path(os.environ.get("CONVERSATIONS_DIR", "conversations"))
 CONVERSATIONS_DIR.mkdir(exist_ok=True)
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/Users/liyer_1/Downloads/lennys-newsletterpodcastdata-all"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", "lennys-data"))
 
 EMBED_MODEL = "all-MiniLM-L6-v2"
 CLAUDE_MODEL = "claude-sonnet-4-6"

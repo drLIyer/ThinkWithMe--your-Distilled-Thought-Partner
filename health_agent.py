@@ -27,7 +27,7 @@ from pathlib import Path
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
-BASE_DIR           = Path("/Users/liyer_1/lennys-rag")
+BASE_DIR           = Path(__file__).parent
 DB_PATH            = BASE_DIR / "asklenny.db"
 FAISS_PATH         = BASE_DIR / "index.faiss"
 FEEDBACK_PATH      = BASE_DIR / "feedback.json"
@@ -65,7 +65,7 @@ RAG_SERVICE_PORT      = 8083
 BOOKMARKS_SERVICE_PORT = 8084
 USERS_SERVICE_PORT     = 8085
 FEEDBACK_SERVICE_PORT  = 8086
-EMAIL_TO              = "liyer@aligntech.com"
+EMAIL_TO              = os.environ.get("HEALTH_EMAIL_TO", "")
 
 
 # ── Data structures ───────────────────────────────────────────────────────────

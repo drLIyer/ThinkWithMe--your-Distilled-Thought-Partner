@@ -11,6 +11,7 @@ Run:
 """
 
 import json
+import os
 import pickle
 import re
 from pathlib import Path
@@ -30,7 +31,7 @@ load_dotenv()
 
 INDEX_PATH  = Path("index.faiss")
 CHUNKS_PATH = Path("chunks.pkl")
-DATA_DIR    = Path("/Users/liyer_1/Downloads/lennys-newsletterpodcastdata-all")
+DATA_DIR    = Path(os.environ.get("DATA_DIR", "lennys-data"))
 EMBED_MODEL = "all-MiniLM-L6-v2"
 TOP_K       = 8
 

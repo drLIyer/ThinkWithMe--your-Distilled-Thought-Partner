@@ -8,6 +8,7 @@ Run with:
 import base64
 import io
 import json
+import os
 import mimetypes
 import pickle
 import time
@@ -28,8 +29,8 @@ CHUNKS_PATH       = Path("chunks.pkl")
 FEEDBACK_PATH     = Path("feedback.json")
 CONVERSATIONS_PATH = Path("conversations.json")
 EMBED_MODEL       = "all-MiniLM-L6-v2"
-CLAUDE_MODEL      = "align-aws-sonnet-4-6"
-HAIKU_MODEL       = "align-aws-haiku-4-5"
+CLAUDE_MODEL      = os.environ.get("ANTHROPIC_MODEL",       "claude-sonnet-4-6")
+HAIKU_MODEL       = os.environ.get("ANTHROPIC_HAIKU_MODEL", "claude-haiku-4-5")
 TOP_K             = 8
 MAX_HISTORY_TURNS = 20
 TURN_WARNING      = 15   # warn at this many assistant turns
@@ -142,7 +143,7 @@ div[data-testid="stFileUploader"] section small { display: none !important; }
 
 # ── Cached resources ──────────────────────────────────────────────────────────
 
-DATA_DIR = Path("/Users/liyer_1/Downloads/lennys-newsletterpodcastdata-all")
+DATA_DIR = Path(os.environ.get("DATA_DIR", "lennys-data"))
 
 
 @st.cache_resource(show_spinner="Loading index…")

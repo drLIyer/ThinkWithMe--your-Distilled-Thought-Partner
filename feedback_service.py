@@ -27,8 +27,8 @@ load_dotenv()
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-FEEDBACK_PATH = Path("/Users/liyer_1/lennys-rag/feedback.json")
-GAPS_PATH     = Path("/Users/liyer_1/lennys-rag/knowledge_gaps.json")
+FEEDBACK_PATH = Path(__file__).parent / "feedback.json"
+GAPS_PATH     = Path(__file__).parent / "knowledge_gaps.json"
 
 _FEEDBACK_LOCK = FileLock(str(FEEDBACK_PATH) + ".lock")
 _GAPS_LOCK     = FileLock(str(GAPS_PATH)     + ".lock")

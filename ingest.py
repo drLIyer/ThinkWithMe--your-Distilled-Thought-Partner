@@ -10,6 +10,7 @@ Outputs:
 """
 
 import json
+import os
 import pickle
 from pathlib import Path
 
@@ -18,7 +19,7 @@ import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
 
-DATA_DIR = Path("/Users/liyer_1/Downloads/lennys-newsletterpodcastdata-all")
+DATA_DIR = Path(os.environ.get("DATA_DIR", "lennys-data"))
 INDEX_PATH = Path("index.faiss")
 CHUNKS_PATH = Path("chunks.pkl")
 

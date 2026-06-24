@@ -9,6 +9,7 @@ Only accessible from this machine. Password protected.
 """
 
 import json
+import os
 import secrets
 import sqlite3
 import subprocess
@@ -19,16 +20,17 @@ from fastapi import FastAPI, Request, Response, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 import uvicorn
 
-DB_PATH              = Path("/Users/liyer_1/lennys-rag/asklenny.db")
-GAPS_PATH            = Path("/Users/liyer_1/lennys-rag/knowledge_gaps.json")
-FEEDBACK_PATH        = Path("/Users/liyer_1/lennys-rag/feedback.json")
-UPDATE_LOG           = Path("/Users/liyer_1/lennys-rag/update_log.txt")
-UPDATE_SCRIPT        = Path("/Users/liyer_1/lennys-rag/run_update.sh")
-HEALTH_EVENTS_PATH   = Path("/Users/liyer_1/lennys-rag/health_events.json")
-HEALTH_LOG_PATH      = Path("/Users/liyer_1/lennys-rag/health_agent.log")
-BOOKMARKS_PATH       = Path("/Users/liyer_1/lennys-rag/bookmarks.json")
+_BASE                = Path(__file__).parent
+DB_PATH              = _BASE / "asklenny.db"
+GAPS_PATH            = _BASE / "knowledge_gaps.json"
+FEEDBACK_PATH        = _BASE / "feedback.json"
+UPDATE_LOG           = _BASE / "update_log.txt"
+UPDATE_SCRIPT        = _BASE / "run_update.sh"
+HEALTH_EVENTS_PATH   = _BASE / "health_events.json"
+HEALTH_LOG_PATH      = _BASE / "health_agent.log"
+BOOKMARKS_PATH       = _BASE / "bookmarks.json"
 
-ADMIN_PASSWORD = "distill-admin-2024"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 SESSION_TOKEN  = secrets.token_hex(32)   # generated fresh each server start
 
 app = FastAPI()
@@ -199,7 +201,7 @@ async def run_update(request: Request):
         result = subprocess.run(
             ["/bin/bash", str(UPDATE_SCRIPT)],
             capture_output=True, text=True,
-            cwd="/Users/liyer_1/lennys-rag", timeout=300
+            cwd=str(_BASE), timeout=300
         )
         return JSONResponse({"ok": result.returncode == 0, "output": result.stdout[-2000:]})
     except Exception as e:

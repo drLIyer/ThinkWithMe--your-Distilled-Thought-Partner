@@ -27,7 +27,7 @@ load_dotenv()
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-BOOKMARKS_PATH = Path("/Users/liyer_1/lennys-rag/bookmarks.json")
+BOOKMARKS_PATH = Path(__file__).parent / "bookmarks.json"
 _LOCK          = FileLock(str(BOOKMARKS_PATH) + ".lock")
 
 # ── Data access ───────────────────────────────────────────────────────────────

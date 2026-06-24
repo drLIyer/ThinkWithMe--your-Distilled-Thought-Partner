@@ -15,6 +15,7 @@ Options:
 
 import argparse
 import json
+import os
 import pickle
 import re
 import sys
@@ -32,7 +33,7 @@ from sentence_transformers import SentenceTransformer
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-DATA_DIR        = Path("/Users/liyer_1/Downloads/lennys-newsletterpodcastdata-all")
+DATA_DIR        = Path(os.environ.get("DATA_DIR", "lennys-data"))
 INDEX_JSON      = DATA_DIR / "01-start-here/index.json"
 NEWSLETTER_DIR  = DATA_DIR / "02-newsletters"
 PODCAST_DIR     = DATA_DIR / "03-podcasts"

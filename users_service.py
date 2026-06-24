@@ -30,7 +30,7 @@ load_dotenv()
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-_BASE          = Path("/Users/liyer_1/lennys-rag")
+_BASE          = Path(__file__).parent
 PROFILE_PATH   = _BASE / "user_profile.json"
 MEMORIES_PATH  = _BASE / "user_memories.json"
 ENGAGEMENT_PATH    = _BASE / "engagement.json"
@@ -38,7 +38,7 @@ ENGAGEMENT_SUMMARY = _BASE / "engagement_summary.txt"
 MAX_MEMORIES       = 10
 MAX_ENGAGEMENT     = 50
 ENGAGEMENT_REGEN_EVERY = 5
-HAIKU_MODEL   = os.environ.get("ANTHROPIC_DEFAULT_HAIKU_MODEL", "align-aws-haiku-4-5")
+HAIKU_MODEL   = os.environ.get("ANTHROPIC_HAIKU_MODEL", "claude-haiku-4-5")
 
 _PROFILE_LOCK    = FileLock(str(PROFILE_PATH)    + ".lock")
 _MEMORIES_LOCK   = FileLock(str(MEMORIES_PATH)   + ".lock")
