@@ -1,64 +1,40 @@
 #!/bin/bash
-cd /Users/liyer_1/lennys-rag
-LOG="/Users/liyer_1/lennys-rag/update_log.txt"
-EMAIL="liyer@aligntech.com"
+# Run the knowledge update agent, restart Distill, and optionally email a summary.
+#
+# Set HEALTH_EMAIL_TO in .env to receive email digests.
+# Uses the Python venv at .venv/bin/python3 by default; override with VENV_PYTHON.
+
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG="$DIR/update_log.txt"
+PYTHON="${VENV_PYTHON:-$DIR/.venv/bin/python3}"
+EMAIL="${HEALTH_EMAIL_TO:-}"
 
 echo "=== $(date) ===" >> "$LOG"
 
-# Run the update agent and capture output
-OUTPUT=$(/Users/liyer_1/lennys-rag/.venv312/bin/python3 update_knowledge.py 2>&1)
+OUTPUT=$("$PYTHON" "$DIR/update_knowledge.py" 2>&1)
 EXIT_CODE=$?
 echo "$OUTPUT" >> "$LOG"
 
-# Restart Distill regardless of whether new content was found
-pkill -f "chainlit run" 2>/dev/null
+# Restart Distill
+pkill -f "chainlit run" 2>/dev/null || true
 sleep 2
-nohup /Users/liyer_1/lennys-rag/.venv312/bin/chainlit run chainlit_app.py --port 8081 >> "$LOG" 2>&1 &
+nohup "$PYTHON" -m chainlit run "$DIR/chainlit_app.py" --port "${CHAINLIT_PORT:-8081}" >> "$LOG" 2>&1 &
 echo "Distill restarted at $(date)" >> "$LOG"
 
-# Send email summary via macOS Mail
-if [ $EXIT_CODE -eq 0 ]; then
-    SUBJECT="Distill Update — $(date '+%B %d, %Y')"
-    BODY="Hi,
-
-Your Distill knowledge base was updated on $(date '+%A, %B %d at %I:%M %p').
-
-Update Summary:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-$OUTPUT
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Distill is running at http://localhost:8081
-
-— Distill Auto-Update Agent"
-else
-    SUBJECT="Distill Update — Error on $(date '+%B %d, %Y')"
-    BODY="Hi,
-
-The Distill knowledge update ran into an issue on $(date '+%A, %B %d at %I:%M %p').
-
-Error output:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-$OUTPUT
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Please check update_log.txt for details.
-
-— Distill Auto-Update Agent"
+# Send email summary if address is configured and sendmail is available
+if [ -n "$EMAIL" ] && command -v sendmail &>/dev/null; then
+    if [ $EXIT_CODE -eq 0 ]; then
+        SUBJECT="Distill Update — $(date '+%B %d, %Y')"
+    else
+        SUBJECT="Distill Update — Error on $(date '+%B %d, %Y')"
+    fi
+    {
+        echo "To: $EMAIL"
+        echo "Subject: $SUBJECT"
+        echo ""
+        echo "$OUTPUT"
+    } | sendmail "$EMAIL"
+    echo "Email sent to $EMAIL" >> "$LOG"
 fi
-
-osascript <<APPLESCRIPT
-tell application "Mail"
-    set newMessage to make new outgoing message with properties {subject:"$SUBJECT", content:"$BODY", visible:false}
-    tell newMessage
-        make new to recipient at end of to recipients with properties {address:"$EMAIL"}
-    end tell
-    send newMessage
-end tell
-APPLESCRIPT
-
-echo "Email sent to $EMAIL" >> "$LOG"

@@ -45,7 +45,7 @@ _MEMORIES_LOCK   = FileLock(str(MEMORIES_PATH)   + ".lock")
 _ENGAGEMENT_LOCK = FileLock(str(ENGAGEMENT_PATH) + ".lock")
 
 SYSTEM_PROMPT = """\
-You are Distill — a thought partner for Align Technology employees, with deep knowledge of Lenny Rachitsky's newsletter and podcast: 349 newsletters and 289 podcasts on product, growth, leadership, and startups.
+You are Distill — a thought partner with deep knowledge of Lenny Rachitsky's newsletter and podcast: 600+ pieces on product, growth, leadership, and startups.
 
 Always cite sources naturally in the text (e.g. "In the podcast with [Guest]..." or "In his newsletter '[Title]'...").
 
@@ -202,7 +202,7 @@ def _build_system_prompt_from_files() -> str:
             f"- Products / Portfolios: {profile.get('products', '')}\n"
             f"- Current projects: {profile.get('projects', '')}\n"
             + (f"- What they want from this thought partner: {goals}\n" if goals else "")
-            + "\nAlways frame answers in the context of their specific role and products at Align Technology. "
+            + "\nAlways frame answers in the context of their specific role and the products they manage. "
             "When relevant, connect Lenny's frameworks to their actual situation."
             + (f" Keep in mind their stated goal: {goals}." if goals else "")
             + "\n\n"

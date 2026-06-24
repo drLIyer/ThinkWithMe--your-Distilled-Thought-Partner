@@ -132,17 +132,22 @@ USERS_SERVICE_TIMEOUT     = 5.0
 FEEDBACK_SERVICE_URL      = "http://localhost:8086"
 FEEDBACK_SERVICE_TIMEOUT  = 5.0
 
-SYSTEM_PROMPT = """\
-You are Distill — a thought partner for Align Technology employees, with deep knowledge of Lenny Rachitsky's newsletter and podcast: 349 newsletters and 289 podcasts on product, growth, leadership, and startups.
+_ASSISTANT_NAME   = os.environ.get("ASSISTANT_NAME",        "Distill")
+_CORPUS_DESC      = os.environ.get("CORPUS_DESCRIPTION",
+    "Lenny Rachitsky's newsletter and podcast: 600+ pieces on product, growth, leadership, and startups")
+_CUSTOM_PROMPT    = os.environ.get("SYSTEM_PROMPT_OVERRIDE", "")
 
-Always cite sources naturally in the text (e.g. "In the podcast with [Guest]..." or "In his newsletter '[Title]'...").
+SYSTEM_PROMPT = _CUSTOM_PROMPT or f"""\
+You are {_ASSISTANT_NAME} — a thought partner with deep knowledge of {_CORPUS_DESC}.
+
+Always cite sources naturally in the text (e.g. "In the podcast with [Guest]..." or "In the newsletter '[Title]'...").
 
 Adapt your response to the user's intent:
 
 **Direct questions**: Answer concisely using the provided context. If the context is thin, say so — but share what is relevant.
 
 **Draft or writing requests** ("draft an article", "write a post", "help me write X"):
-Use the context to produce a concrete draft the user can act on immediately, even if no single source covers the topic perfectly. Present it under the heading "Here's a version you could start with:" and note which Lenny sources shaped it.
+Use the context to produce a concrete draft the user can act on immediately, even if no single source covers the topic perfectly. Present it under the heading "Here's a version you could start with:" and note which sources shaped it.
 
 **How-to or brainstorm requests** ("how should I approach", "brainstorm ideas", "help me think through"):
 1. Present a brief framework grounded in the sources.
@@ -159,8 +164,8 @@ Use the context to produce a concrete draft the user can act on immediately, eve
 
 **Source transparency**: Always be honest about where your answer comes from.
 - If the provided context strongly supports your answer, cite it naturally.
-- If the context is thin or only partially relevant, say so explicitly — e.g. "Lenny's content doesn't cover this directly, but drawing on general product thinking…"
-- Never silently blend general knowledge into a Lenny-sourced answer without flagging it.
+- If the context is thin or only partially relevant, say so explicitly.
+- Never silently blend general knowledge into a sourced answer without flagging it.
 
 Never leave the user without something concrete to act on."""
 
@@ -408,7 +413,7 @@ async def save_feedback(msg_id: str, question: str, answer: str, rating: str, te
         import aiosqlite
         value = 1 if rating == "up" else 0
         thread_id = cl.user_session.get("thread_id", "unknown")
-        async with aiosqlite.connect("asklenny.db") as db:
+        async with aiosqlite.connect(DB_SYNC_URL) as db:
             await db.execute(
                 'INSERT OR REPLACE INTO feedbacks (id, "forId", "threadId", value, comment) VALUES (?,?,?,?,?)',
                 (str(uuid.uuid4()), msg_id, thread_id, value,
@@ -478,7 +483,7 @@ def _build_system_prompt() -> str:
             f"- Products / Portfolios: {profile.get('products', '')}\n"
             f"- Current projects: {profile.get('projects', '')}\n"
             + (f"- What they want from this thought partner: {goals}\n" if goals else "")
-            + "\nAlways frame answers in the context of their specific role and products at Align Technology. "
+            + "\nAlways frame answers in the context of their specific role and the products they manage. "
             "When relevant, connect Lenny's frameworks to their actual situation."
             + (f" Keep in mind their stated goal: {goals}." if goals else "")
             + "\n\n"
@@ -516,7 +521,7 @@ async def _send_chat_settings():
 
     settings = cl.ChatSettings([
         cl.input_widget.Tab(id="profile_tab", label="Profile", inputs=[
-            cl.input_widget.TextInput(id="role",     label="Your role at Align",
+            cl.input_widget.TextInput(id="role",     label="Your role",
                                       placeholder="e.g. Sr. PM, Director of Product",
                                       initial=profile.get("role", "")),
             cl.input_widget.TextInput(id="team",     label="Team / Business unit",
@@ -667,7 +672,7 @@ async def on_chat_start():
         await cl.Message(
             content=(
                 "## Welcome to Distill 👋\n\n"
-                "Before we start, tell me a bit about you so every answer is relevant to **your** work at Align.\n\n"
+                "Before we start, tell me a bit about you so every answer is relevant to **your** work.\n\n"
                 "Fill in your profile using the **⚙️ Settings** panel that just opened — takes 30 seconds. "
                 "You can update it anytime from ⚙️ Settings.\n\n"
                 "---\n\n"
@@ -888,7 +893,7 @@ async def _handle_message(message: cl.Message):
     # ── Persist analytics metadata to DB ──────────────────────────────────
     try:
         import aiosqlite as _aio
-        async with _aio.connect("asklenny.db") as _db:
+        async with _aio.connect(DB_SYNC_URL) as _db:
             _meta = json.dumps({
                 "model":       model,
                 "confidence":  confidence.get("level", ""),

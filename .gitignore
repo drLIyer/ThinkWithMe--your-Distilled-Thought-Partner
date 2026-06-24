@@ -44,3 +44,8 @@ venv/
 
 # Replit config
 .replit
+
+# Corpus data — not redistributable, see data/README.md
+data/*.md
+data/*.json
+!data/README.md

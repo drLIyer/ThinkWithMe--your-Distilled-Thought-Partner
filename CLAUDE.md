@@ -38,7 +38,7 @@ The core RAG pipeline (duplicated across all three):
 3. Format chunks as labeled context blocks (`[PODCAST]` / `[NEWSLETTER]`)
 4. Call Claude with the context injected into the user turn — **context is NOT stored in message history**, only the plain Q&A is, capped at `MAX_HISTORY_TURNS=6` pairs
 
-**Pre-built artifacts** (`index.faiss`, `chunks.pkl`) are committed to the repo. Source data lives at `/Users/liyer_1/Downloads/lennys-newsletterpodcastdata-all` and is read by `ingest.py` only — the app itself never reads the raw markdown files except to resolve podcast YouTube URLs at startup.
+**Pre-built artifacts** (`index.faiss`, `chunks.pkl`) are committed to the repo. Source data lives at the path set by `DATA_DIR` and is read by `ingest.py` only — the app itself never reads the raw markdown files except to resolve podcast YouTube URLs at startup.
 
 ## Environment variables
 
@@ -46,7 +46,7 @@ The core RAG pipeline (duplicated across all three):
 |---|---|---|
 | `ANTHROPIC_API_KEY` | — | Required |
 | `CONVERSATIONS_DIR` | `.` (repo root) | Set to a Railway persistent volume path in production so conversations survive deploys |
-| `DATA_DIR` | `/Users/liyer_1/Downloads/lennys-newsletterpodcastdata-all` | Only used by `main.py` at startup to build the podcast YouTube URL lookup |
+| `DATA_DIR` | `./data` | Path to your corpus of markdown files. Only used by `main.py` at startup and `ingest.py` |
 
 ## Data format
 
