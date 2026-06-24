@@ -1,0 +1,46 @@
+__pycache__/
+*.pyc
+.env
+.DS_Store
+conversations.json
+
+# Large binary index files
+index.faiss
+chunks.pkl
+
+# Personal data - do not commit
+bookmarks.json
+user_profile.json
+user_memories.json
+feedback.json
+knowledge_gaps.json
+health_events.json
+asklenny.db
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+distill_launch.log
+admin.log
+health_agent.log
+rag_service.log
+bookmarks_service.log
+users_service.log
+feedback_service.log
+update_log.txt
+
+# Runtime
+.update_seen.json
+*.lock
+
+# Virtual environment
+.venv*/
+venv/
+
+# Chainlit uploads and session files
+.files/
+
+# Replit config
+.replit

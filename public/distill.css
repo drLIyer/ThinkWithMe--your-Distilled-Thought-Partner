@@ -1,0 +1,75 @@
+/* ── Hide Chainlit branding ───────────────────────────────────────────────── */
+
+/* "Built with Chainlit" footer */
+a[href*="chainlit"],
+a[href*="chainlit.io"],
+footer a,
+[class*="watermark"],
+[class*="built-with"],
+[class*="poweredBy"],
+[id*="powered-by"] {
+  display: none !important;
+}
+
+/* Chainlit logo in header (replace with nothing) */
+img[alt="Chainlit"],
+img[src*="chainlit"] {
+  display: none !important;
+}
+
+/* ── Distill branding ─────────────────────────────────────────────────────── */
+
+/* App title in header */
+header [class*="title"],
+header h1,
+[class*="appTitle"] {
+  font-size: 1.1rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* Welcome screen centering */
+[class*="welcome"],
+[class*="empty-state"] {
+  text-align: center;
+}
+
+/* Subtle subtitle colour */
+[class*="description"],
+[class*="subtitle"] {
+  opacity: 0.6;
+  font-size: 0.85rem !important;
+}
+
+/* Chat message bubbles — slightly more padding */
+[class*="message-content"] {
+  line-height: 1.65 !important;
+}
+
+/* Action buttons (👍 👎 chips) spacing */
+[class*="actions"] {
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+
+/* ── Move Saved Posts panel to left side ─────────────────────────────────── */
+
+/* The sidebar panel (contains aside>#side-view-title) should appear before the chat panel */
+#side-view-title,
+#side-view-content {
+  /* These are inside an aside inside a ResizablePanel.
+     We target the aside itself to flip order. */
+}
+
+/* The aside wrapping side-view is a sibling of the chat panel inside a flex-row group.
+   Targeting the aside's parent panel via the aside itself: */
+aside:has(#side-view-title) {
+  order: -1 !important;
+  margin-right: 0 !important;
+  margin-left: 1rem !important;
+}
+
+/* Also flip the resize handle that sits between chat and sidebar */
+aside:has(#side-view-title) ~ * {
+  order: -1 !important;
+}

@@ -1,0 +1,12 @@
+anthropic
+sentence-transformers
+faiss-cpu
+python-frontmatter
+numpy
+streamlit
+chainlit
+pypdf
+fastapi
+uvicorn[standard]
+msal
+itsdangerous

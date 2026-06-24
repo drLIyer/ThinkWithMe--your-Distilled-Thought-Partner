@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ask Lenny</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: #2e2e2e;
+    --text: #ececec;
+    --text-muted: #888;
+    --accent: #7c6aff;
+    --accent-hover: #9580ff;
+    --user-bubble: #1e1e2e;
+    --sidebar-w: 260px;
+    --radius: 12px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  #sidebar-header {
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #sidebar-header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+
+  #sidebar-header p {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  #new-chat-btn {
+    margin: 12px;
+    padding: 9px 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+  }
+  #new-chat-btn:hover { background: var(--accent-hover); }
+
+  #conv-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px 12px;
+  }
+
+  .conv-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 8px;
+    padding: 2px 4px 2px 8px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .conv-item:hover { background: var(--surface2); }
+  .conv-item.active { background: var(--surface2); }
+
+  .conv-title {
+    flex: 1;
+    font-size: 13px;
+    padding: 7px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+  }
+  .conv-item.active .conv-title { font-weight: 500; }
+
+  .conv-del {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    opacity: 0;
+    transition: opacity 0.1s, color 0.1s, background 0.1s;
+  }
+  .conv-item:hover .conv-del { opacity: 1; }
+  .conv-del:hover { color: #ff6b6b; background: rgba(255,60,60,0.1); }
+
+  #sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  #user-bar {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  #user-name {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #logout-link {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: color 0.15s;
+  }
+  #logout-link:hover { color: var(--text); }
+
+  /* ── Main ── */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 0 16px;
+    scroll-behavior: smooth;
+  }
+
+  .msg-row {
+    max-width: 720px;
+    margin: 0 auto 24px;
+    padding: 0 24px;
+  }
+
+  .msg-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .msg-bubble {
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    font-size: 14.5px;
+    line-height: 1.65;
+  }
+
+  .msg-bubble.user {
+    background: var(--user-bubble);
+    border: 1px solid var(--border);
+  }
+
+  .msg-bubble.assistant {
+    background: transparent;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Markdown inside assistant bubbles */
+  .msg-bubble.assistant p { margin-bottom: 10px; }
+  .msg-bubble.assistant p:last-child { margin-bottom: 0; }
+  .msg-bubble.assistant ul, .msg-bubble.assistant ol { margin: 8px 0 10px 20px; }
+  .msg-bubble.assistant li { margin-bottom: 4px; }
+  .msg-bubble.assistant strong { color: #fff; }
+  .msg-bubble.assistant a { color: var(--accent); text-decoration: none; }
+  .msg-bubble.assistant a:hover { text-decoration: underline; }
+  .msg-bubble.assistant code {
+    background: var(--surface2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: "SF Mono", monospace;
+  }
+
+  /* Sources */
+  .sources-toggle {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .sources-toggle:hover { border-color: var(--accent); color: var(--text); }
+  .sources-toggle svg { width: 12px; height: 12px; transition: transform 0.2s; }
+  .sources-toggle.open svg { transform: rotate(180deg); }
+
+  .sources-list {
+    display: none;
+    margin-top: 10px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sources-list.visible { display: flex; }
+
+  .source-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .source-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .source-badge {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .source-badge.podcast { background: rgba(124,106,255,0.2); color: var(--accent); }
+  .source-badge.newsletter { background: rgba(34,197,94,0.15); color: #4ade80; }
+
+  .source-title {
+    font-size: 13px;
+    font-weight: 500;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .source-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .source-open {
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 2px 8px;
+    border: 1px solid rgba(124,106,255,0.3);
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .source-open:hover { background: rgba(124,106,255,0.15); }
+
+  .source-snippet {
+    margin-top: 8px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Typing cursor */
+  .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--text);
+    margin-left: 1px;
+    vertical-align: text-bottom;
+    animation: blink 0.8s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ── Input ── */
+  #input-area {
+    padding: 16px 24px 24px;
+    max-width: 720px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  #input-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    transition: border-color 0.15s;
+  }
+  #input-wrap:focus-within { border-color: var(--accent); }
+
+  #input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 14.5px;
+    line-height: 1.5;
+    resize: none;
+    max-height: 180px;
+    font-family: inherit;
+  }
+  #input::placeholder { color: var(--text-muted); }
+
+  #send-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    padding: 7px 9px;
+    cursor: pointer;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, opacity 0.15s;
+    flex-shrink: 0;
+  }
+  #send-btn:hover { background: var(--accent-hover); }
+  #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  #send-btn svg { width: 16px; height: 16px; }
+
+  /* Empty state */
+  #empty-state {
+    max-width: 480px;
+    margin: 80px auto 0;
+    padding: 0 24px;
+    text-align: center;
+  }
+  #empty-state h2 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+  #empty-state p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  .pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .pill:hover { border-color: var(--accent); background: var(--surface2); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    #sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <h1>Ask Lenny</h1>
+    <p>349 newsletters · 289 podcasts</p>
+  </div>
+  <button id="new-chat-btn">✏️ &nbsp;New chat</button>
+  <div id="conv-list"></div>
+  <div id="sidebar-footer">sentence-transformers · FAISS · Claude</div>
+  <div id="user-bar">
+    <span id="user-name"></span>
+    <a href="/logout" id="logout-link">Sign out</a>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <div id="messages">
+    <div id="empty-state">
+      <h2>Ask Lenny anything</h2>
+      <p>Search across 349 newsletters and 289 podcast episodes on product, growth, and leadership.</p>
+      <div class="pill-row">
+        <div class="pill" onclick="sendPill(this)">How do I find product-market fit?</div>
+        <div class="pill" onclick="sendPill(this)">Best advice on hiring great PMs</div>
+        <div class="pill" onclick="sendPill(this)">How to think about pricing</div>
+        <div class="pill" onclick="sendPill(this)">Growth loops vs. virality</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="input-area">
+    <div id="input-wrap">
+      <textarea id="input" rows="1" placeholder="Ask about product, growth, strategy, leadership…"></textarea>
+      <button id="send-btn" onclick="sendMessage()" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+
+let state = { active_id: null, conversations: [] };
+let streaming = false;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+
+async function init() {
+  const meResp = await fetch('/me');
+  if (meResp.status === 401) { window.location = '/signin'; return; }
+  const user = await meResp.json();
+  document.getElementById('user-name').textContent = user.name || user.email;
+
+  const data = await fetch('/conversations').then(r => r.json());
+  state = data;
+  if (!state.conversations.length) {
+    const conv = newConv();
+    state.conversations.push(conv);
+    state.active_id = conv.id;
+  }
+  renderSidebar();
+  renderMessages();
+}
+
+// ── Conversation helpers ───────────────────────────────────────────────────
+
+function newConv() {
+  return { id: crypto.randomUUID(), title: 'New chat', messages: [], history: [] };
+}
+
+function activeConv() {
+  return state.conversations.find(c => c.id === state.active_id) || state.conversations[0];
+}
+
+function setActive(id) {
+  state.active_id = id;
+  renderSidebar();
+  renderMessages();
+}
+
+function deleteConv(id, e) {
+  e.stopPropagation();
+  state.conversations = state.conversations.filter(c => c.id !== id);
+  if (!state.conversations.length) {
+    const conv = newConv();
+    state.conversations.push(conv);
+    state.active_id = conv.id;
+  } else if (state.active_id === id) {
+    state.active_id = state.conversations[0].id;
+  }
+  renderSidebar();
+  renderMessages();
+  saveConversations();
+}
+
+async function saveConversations() {
+  await fetch('/conversations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ active_id: state.active_id, conversations: state.conversations }),
+  });
+}
+
+// ── Sidebar render ─────────────────────────────────────────────────────────
+
+function renderSidebar() {
+  const list = document.getElementById('conv-list');
+  list.innerHTML = state.conversations.map(c => `
+    <div class="conv-item ${c.id === state.active_id ? 'active' : ''}" onclick="setActive('${c.id}')">
+      <div class="conv-title">${escHtml(c.title)}</div>
+      <button class="conv-del" onclick="deleteConv('${c.id}', event)" title="Delete">×</button>
+    </div>
+  `).join('');
+}
+
+// ── Message render ─────────────────────────────────────────────────────────
+
+function renderMessages() {
+  const conv = activeConv();
+  const el = document.getElementById('messages');
+
+  if (!conv.messages.length) {
+    el.innerHTML = `<div id="empty-state">
+      <h2>Ask Lenny anything</h2>
+      <p>Search across 349 newsletters and 289 podcast episodes on product, growth, and leadership.</p>
+      <div class="pill-row">
+        <div class="pill" onclick="sendPill(this)">How do I find product-market fit?</div>
+        <div class="pill" onclick="sendPill(this)">Best advice on hiring great PMs</div>
+        <div class="pill" onclick="sendPill(this)">How to think about pricing</div>
+        <div class="pill" onclick="sendPill(this)">Growth loops vs. virality</div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = conv.messages.map((m, i) => renderMsgHtml(m, i)).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderMsgHtml(msg, idx) {
+  if (msg.role === 'user') {
+    return `<div class="msg-row">
+      <div class="msg-label">You</div>
+      <div class="msg-bubble user">${escHtml(msg.content)}</div>
+    </div>`;
+  }
+
+  const sourcesHtml = msg.sources ? renderSourcesHtml(msg.sources, idx) : '';
+  const parsed = marked.parse(msg.content || '');
+  return `<div class="msg-row" id="msg-${idx}">
+    <div class="msg-label">Ask Lenny</div>
+    <div class="msg-bubble assistant">${parsed}</div>
+    ${sourcesHtml}
+  </div>`;
+}
+
+function renderSourcesHtml(sources, idx) {
+  if (!sources.length) return '';
+  const cards = sources.map(s => {
+    const isYT = s.url && s.url.includes('youtube');
+    const icon = s.type === 'podcast' ? '🎙️' : '📰';
+    const label = s.type === 'podcast' ? (s.guest || s.title) : s.title;
+    const openLabel = isYT ? '▶ Watch' : '→ Read';
+    const openBtn = s.url
+      ? `<a href="${s.url}" target="_blank" class="source-open">${openLabel}</a>`
+      : '';
+    return `<div class="source-card">
+      <div class="source-card-header">
+        <span class="source-badge ${s.type}">${icon} ${s.type === 'podcast' ? 'Podcast' : 'Newsletter'}</span>
+        <span class="source-title">${escHtml(label)}</span>
+        <span class="source-date">${s.date}</span>
+        ${openBtn}
+      </div>
+      <div class="source-snippet">${escHtml(s.snippet)}</div>
+    </div>`;
+  }).join('');
+
+  return `<button class="sources-toggle open" onclick="toggleSources(this, ${idx})">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+    ${sources.length} sources
+  </button>
+  <div class="sources-list visible" id="sources-${idx}">${cards}</div>`;
+}
+
+function toggleSources(btn, idx) {
+  btn.classList.toggle('open');
+  document.getElementById(`sources-${idx}`).classList.toggle('visible');
+}
+
+// ── Send ───────────────────────────────────────────────────────────────────
+
+function sendPill(el) {
+  document.getElementById('input').value = el.textContent;
+  sendMessage();
+}
+
+async function sendMessage() {
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text || streaming) return;
+
+  streaming = true;
+  document.getElementById('send-btn').disabled = true;
+  input.value = '';
+  input.style.height = 'auto';
+
+  const conv = activeConv();
+
+  // Auto-title
+  if (!conv.messages.length) {
+    conv.title = text.length > 45 ? text.slice(0, 45) + '…' : text;
+    renderSidebar();
+  }
+
+  // Hide empty state, add user message
+  conv.messages.push({ role: 'user', content: text });
+  renderMessages();
+
+  // Add placeholder assistant message
+  const aIdx = conv.messages.length;
+  conv.messages.push({ role: 'assistant', content: '', sources: null });
+
+  // Append streaming row
+  const el = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row';
+  row.id = `msg-${aIdx}`;
+  row.innerHTML = `<div class="msg-label">Ask Lenny</div>
+    <div class="msg-bubble assistant" id="streaming-bubble"><span class="cursor"></span></div>`;
+  el.appendChild(row);
+  el.scrollTop = el.scrollHeight;
+
+  const bubble = document.getElementById('streaming-bubble');
+  let fullText = '';
+  let sources = null;
+
+  try {
+    const resp = await fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversation_id: conv.id,
+        message: text,
+        history: conv.history,
+      }),
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+
+      const lines = buf.split('\n');
+      buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = JSON.parse(line.slice(6));
+
+        if (payload.type === 'sources') {
+          sources = payload.sources;
+        } else if (payload.type === 'token') {
+          fullText += payload.text;
+          bubble.innerHTML = marked.parse(fullText) + '<span class="cursor"></span>';
+          el.scrollTop = el.scrollHeight;
+        } else if (payload.type === 'done') {
+          bubble.innerHTML = marked.parse(fullText);
+        }
+      }
+    }
+  } catch (err) {
+    bubble.textContent = 'Something went wrong. Please try again.';
+  }
+
+  // Persist
+  conv.messages[aIdx] = { role: 'assistant', content: fullText, sources };
+  conv.history.push({ role: 'user', content: text });
+  conv.history.push({ role: 'assistant', content: fullText });
+  if (conv.history.length > 12) conv.history = conv.history.slice(-12);
+
+  // Replace streaming row with final rendered row (includes sources)
+  row.outerHTML = renderMsgHtml(conv.messages[aIdx], aIdx);
+
+  streaming = false;
+  document.getElementById('send-btn').disabled = false;
+  await saveConversations();
+}
+
+// ── New chat ───────────────────────────────────────────────────────────────
+
+document.getElementById('new-chat-btn').addEventListener('click', () => {
+  const conv = newConv();
+  state.conversations.unshift(conv);
+  state.active_id = conv.id;
+  renderSidebar();
+  renderMessages();
+  saveConversations();
+});
+
+// ── Input auto-resize & enter to send ─────────────────────────────────────
+
+const inputEl = document.getElementById('input');
+inputEl.addEventListener('input', () => {
+  document.getElementById('send-btn').disabled = !inputEl.value.trim();
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 180) + 'px';
+});
+
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// ── Util ───────────────────────────────────────────────────────────────────
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
