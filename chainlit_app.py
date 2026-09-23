@@ -142,6 +142,8 @@ You are {_ASSISTANT_NAME} — a thought partner with deep knowledge of {_CORPUS_
 
 Always cite sources naturally in the text (e.g. "In the podcast with [Guest]..." or "In the newsletter '[Title]'...").
 
+When web search results are provided under "## Web Search Results", use them to supplement your answer for topics the corpus hasn't covered directly. Cite web sources inline as [Source: title](url).
+
 Adapt your response to the user's intent:
 
 **Direct questions**: Answer concisely using the provided context. If the context is thin, say so — but share what is relevant.
@@ -597,6 +599,65 @@ def _render_bookmarks_md() -> str:
     return "\n\n".join(lines)
 
 
+# ── Web search ───────────────────────────────────────────────────────────────
+
+_WEB_SEARCH_ENGINE = os.environ.get("WEB_SEARCH_ENGINE", "ddgs").lower()
+
+
+def _web_search_sync(query: str, max_results: int = 5) -> list[dict]:
+    """Returns list of {title, href, body} dicts. Empty list on any failure or disabled."""
+    if _WEB_SEARCH_ENGINE == "none":
+        return []
+    try:
+        if _WEB_SEARCH_ENGINE == "brave":
+            return _web_search_brave(query, max_results)
+        return _web_search_ddgs(query, max_results)
+    except Exception:
+        return []
+
+
+def _web_search_ddgs(query: str, max_results: int) -> list[dict]:
+    from ddgs import DDGS
+    raw = DDGS().text(query, max_results=max_results * 2)
+    results = [r for r in raw if r.get("href") and "aclick" not in r["href"] and "doubleclick" not in r["href"]]
+    return results[:max_results]
+
+
+def _web_search_brave(query: str, max_results: int) -> list[dict]:
+    key = os.environ.get("BRAVE_SEARCH_API_KEY", "")
+    if not key:
+        return []
+    import httpx as _httpx
+    resp = _httpx.get(
+        "https://api.search.brave.com/res/v1/web/search",
+        params={"q": query, "count": max_results},
+        headers={"Accept": "application/json", "X-Subscription-Token": key},
+        timeout=10.0,
+    )
+    resp.raise_for_status()
+    return [
+        {"title": r.get("title", ""), "href": r.get("url", ""), "body": r.get("description", "")}
+        for r in resp.json().get("web", {}).get("results", [])
+    ]
+
+
+def _format_web_context(results: list[dict]) -> str:
+    parts = []
+    for r in results:
+        parts.append(f"**{r.get('title', '')}**\n{r.get('body', '')}\nURL: {r.get('href', '')}")
+    return "\n\n".join(parts)
+
+
+def _format_web_sources_md(results: list[dict]) -> str:
+    lines = []
+    for r in results:
+        title = r.get("title", "Web result")
+        url   = r.get("href", "")
+        body  = r.get("body", "")[:200].rsplit(" ", 1)[0] + " …"
+        lines.append(f"🌐 **Web** · [{title}]({url})\n> {body}\n")
+    return "\n".join(lines)
+
+
 # ── Similar past question ─────────────────────────────────────────────────────
 
 def _find_similar_past_question_sync(query: str, current_thread_id: str) -> dict | None:
@@ -816,8 +877,11 @@ async def _handle_message(message: cl.Message):
     sources        = [dict(r) for r in rag_response["results"]]
     sources_md_str = rag_response["sources_md"]
 
+    # Web search on low confidence — run concurrently with gap logging
+    web_results: list[dict] = []
     if confidence.get("level") == "low":
         asyncio.ensure_future(_post_gap(query, confidence, sources))
+        web_results = await loop.run_in_executor(None, _web_search_sync, query)
 
     # ── Surface similar past question ──────────────────────────────────────
     if similar:
@@ -833,6 +897,9 @@ async def _handle_message(message: cl.Message):
 
     # ── Build Claude messages ──────────────────────────────────────────────
     preamble = f"Context from the corpus:\n\n{context}\n\n---\n\n"
+
+    if web_results:
+        preamble += f"## Web Search Results\n\n{_format_web_context(web_results)}\n\n---\n\n"
 
     # Inject persistent uploaded docs
     if uploaded_docs and not attachments:
@@ -912,12 +979,18 @@ async def _handle_message(message: cl.Message):
     # ── Append confidence + sources to the main message ───────────────────
     conf = confidence
     conf_dot = {"high": "🟢", "medium": "🟠", "low": "🔴"}[conf["level"]]
-    conf_note = "\n\n⚠️ *Limited corpus coverage here — verify key claims independently.*" \
-        if conf["level"] == "low" else ""
+    if conf["level"] == "low" and web_results:
+        conf_note = "\n\n🌐 *Limited corpus coverage — supplemented with web search.*"
+    elif conf["level"] == "low":
+        conf_note = "\n\n⚠️ *Limited corpus coverage here — verify key claims independently.*"
+    else:
+        conf_note = ""
 
     suffix = f"\n\n---\n{conf_dot} *{conf['label']}*{conf_note}"
     if sources:
         suffix += f"\n\n**Sources ({len(sources)})**\n\n{sources_md_str}"
+    if web_results:
+        suffix += f"\n\n**Web Sources ({len(web_results)})**\n\n{_format_web_sources_md(web_results)}"
 
     msg.content = response_text + suffix
     await msg.update()
