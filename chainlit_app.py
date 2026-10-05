@@ -35,7 +35,7 @@ from chainlit.user import User
 class _NoOpStorage(BaseStorageClient):
     """Stub storage client — satisfies Chainlit's interface without persisting files."""
     async def upload_file(self, object_key, data, mime="application/octet-stream", overwrite=True, content_disposition=None):
-        return {}
+        return {"object_key": object_key}  # non-empty so Chainlit's truthiness check passes
     async def delete_file(self, object_key):
         return True
     async def get_read_url(self, object_key):
@@ -346,7 +346,10 @@ SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
 def process_attachment(file_element) -> dict:
     name = file_element.name
-    raw  = file_element.content  # bytes in Chainlit
+    raw  = getattr(file_element, "content", None)
+    if not raw and getattr(file_element, "path", None):
+        with open(file_element.path, "rb") as fh:
+            raw = fh.read()
     mime, _ = mimetypes.guess_type(name)
     mime = mime or "application/octet-stream"
 
@@ -367,6 +370,50 @@ def process_attachment(file_element) -> dict:
         except ImportError:
             text = "[PDF uploaded but pypdf is not installed — run: pip install pypdf]"
         return {"kind": "text", "name": name, "mime": "application/pdf", "content": text}
+
+    if mime in {
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.ms-powerpoint",
+    } or name.lower().endswith((".pptx", ".ppt")):
+        if name.lower().endswith(".ppt") and not name.lower().endswith(".pptx"):
+            return {"kind": "text", "name": name, "mime": mime,
+                    "content": "[Legacy .ppt format is not supported — please save as .pptx and re-upload]"}
+        try:
+            from pptx import Presentation
+            prs = Presentation(io.BytesIO(raw))
+            slides_text = []
+            for i, slide in enumerate(prs.slides, 1):
+                texts = [
+                    shape.text.strip()
+                    for shape in slide.shapes
+                    if hasattr(shape, "text") and shape.text.strip()
+                ]
+                if texts:
+                    slides_text.append(f"--- Slide {i} ---\n" + "\n".join(texts))
+            text = "\n\n".join(slides_text) if slides_text else "[No text found in presentation]"
+        except ImportError:
+            text = "[PowerPoint uploaded but python-pptx is not installed — run: pip install python-pptx]"
+        except Exception as e:
+            text = f"[Could not read PowerPoint file: {e}]"
+        return {"kind": "text", "name": name, "mime": mime, "content": text}
+
+    if mime in {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+    } or name.lower().endswith((".docx", ".doc")):
+        if name.lower().endswith(".doc") and not name.lower().endswith(".docx"):
+            return {"kind": "text", "name": name, "mime": mime,
+                    "content": "[Legacy .doc format is not supported — please save as .docx and re-upload]"}
+        try:
+            from docx import Document
+            doc = Document(io.BytesIO(raw))
+            paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+            text = "\n\n".join(paragraphs) if paragraphs else "[No text found in document]"
+        except ImportError:
+            text = "[Word document uploaded but python-docx is not installed — run: pip install python-docx]"
+        except Exception as e:
+            text = f"[Could not read Word document: {e}]"
+        return {"kind": "text", "name": name, "mime": mime, "content": text}
 
     try:
         content = raw.decode("utf-8", errors="replace")
@@ -841,7 +888,7 @@ async def _handle_message(message: cl.Message):
     uploaded_docs: list = cl.user_session.get("uploaded_docs", [])
     if message.elements:
         for el in message.elements:
-            if hasattr(el, "content") and el.content:
+            if getattr(el, "content", None) or getattr(el, "path", None):
                 att = process_attachment(el)
                 attachments.append(att)
                 if att["kind"] == "text":
